@@ -4,6 +4,7 @@ import fs from "fs";
 import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "./types/database.types";
+import { randomUUID } from "crypto";
 
 const deepseek = new OpenAI({
   baseURL: "https://api.deepseek.com",

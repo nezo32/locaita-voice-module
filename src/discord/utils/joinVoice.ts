@@ -1,7 +1,5 @@
-import { EndBehaviorType, joinVoiceChannel } from "@discordjs/voice";
+import { joinVoiceChannel } from "@discordjs/voice";
 import { APIInteractionGuildMember, Guild, GuildMember } from "discord.js";
-import { createWriteStream } from "fs";
-import { opus } from "prism-media";
 import { VoiceChannelRecorder } from "./channelRecorder";
 import { getAiResponse, transcription } from "../../ai";
 
@@ -21,11 +19,12 @@ export const joinVoice = async (member: GuildMember | APIInteractionGuildMember,
   });
 
   const recorder = new VoiceChannelRecorder(guild, connection);
-  setInterval(async () => {
+
+  const aiAsk = async () => {
     const recordings = Array.from(recorder.getRecordings());
     recorder.cleanRecordings();
 
-    if (!recordings.length) return;
+    if (!recordings.length) return setTimeout(aiAsk, 2000);
 
     console.log(`Received recordings: ${recordings.length}`);
 
@@ -51,12 +50,14 @@ export const joinVoice = async (member: GuildMember | APIInteractionGuildMember,
       );
     });
 
-    if (!finalData.length) return;
+    if (!finalData.length) return setTimeout(aiAsk, 2000);
 
     const response = await getAiResponse(finalData);
     console.log(`Got AI resopnse`);
     console.log(response);
 
-    recorder.cleanRecordings();
-  }, 4000);
+    setTimeout(aiAsk, 2000);
+  };
+
+  setTimeout(aiAsk);
 };
