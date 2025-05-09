@@ -9,9 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      chat: {
+        Row: {
+          created_at: string
+          id: string
+          message_id: number | null
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          message_id?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "context"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       context: {
         Row: {
           ai: boolean
+          chat_id: string | null
           created_at: string
           id: number
           text: string
@@ -19,6 +46,7 @@ export type Database = {
         }
         Insert: {
           ai: boolean
+          chat_id?: string | null
           created_at?: string
           id?: number
           text: string
@@ -26,12 +54,21 @@ export type Database = {
         }
         Update: {
           ai?: boolean
+          chat_id?: string | null
           created_at?: string
           id?: number
           text?: string
           username?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "context_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chat"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

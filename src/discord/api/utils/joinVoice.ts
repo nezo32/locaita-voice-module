@@ -1,7 +1,7 @@
 import { joinVoiceChannel } from "@discordjs/voice";
 import { APIInteractionGuildMember, Guild, GuildMember } from "discord.js";
 import { VoiceChannelRecorder } from "./channelRecorder";
-import { getAiResponse, transcription } from "../../ai";
+import { getAiResponse, transcription } from "../../../ai";
 
 export const joinVoice = async (member: GuildMember | APIInteractionGuildMember, guild: Guild): Promise<void> => {
   if (!(member instanceof GuildMember)) {
