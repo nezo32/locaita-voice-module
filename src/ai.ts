@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Database } from "./types/database.types";
 import logger from "./logger";
 
-logger.info("Чтение промта и подключение к API/DB...");
+logger.info("Reading prompt and initializing connect to API/DB...");
 
 const deepseek = new OpenAI({
   baseURL: "https://api.deepseek.com",
@@ -60,7 +60,7 @@ export const getAiResponse = async (
     .select("*")
     .eq("chat_id", chat_id)
     .order("created_at", { ascending: false })
-    .limit(1000);
+    .limit(50);
   const context = data || [];
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -109,7 +109,7 @@ export const getAiResponseOnContext = async (chat_id: string) => {
     .select("*")
     .eq("chat_id", chat_id)
     .order("created_at", { ascending: true })
-    .limit(1000);
+    .limit(200);
   const context = data || [];
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [

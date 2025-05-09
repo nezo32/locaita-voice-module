@@ -23,11 +23,28 @@ type MessageEventListener = (
 ) => void;
 
 const eventListener: MessageEventListener = async ({ chat_id }) => {
-  logger.debug({ chat_id }, "Начата обработка сообщения...");
+  logger.debug({ chat_id }, "Message processing...");
   getAiResponseOnContext(chat_id).then(async (response) => {
-    logger.debug({ chat_id, response }, "Ответ получет");
+    logger.debug({ chat_id, response }, "Successfully received response");
     await bot.sendMessage(chat_id, response);
   });
+};
+
+const saveMessage = async ({
+  chat_id,
+  text,
+  username,
+  user,
+}: {
+  chat_id: string;
+  text: string;
+  username: string;
+  user: string;
+}) => {
+  const messageError = await insertMessage({ chat_id, username, message: text });
+  if (messageError) {
+    logger.error({ user, chat_id, error: messageError }, "Message writing error");
+  }
 };
 
 bot.on("message", async (message) => {
@@ -42,26 +59,23 @@ bot.on("message", async (message) => {
 
   if (!username || !text) return;
 
-  logger.info({ user, chat_id, text }, "Получено сообщение");
+  logger.info({ user, chat_id }, "Message received");
 
   if (!cache.has(chat_id)) {
-    logger.info({ chat_id }, "Создание чата...");
+    logger.info({ chat_id }, "Creating chat...");
     const chat = await createChat(chat_id);
     if (chat instanceof Error) {
-      logger.error({ chat_id, error: chat }, "Ошибка создания чата");
+      logger.error({ chat_id, error: chat }, "Chat creation error");
       return;
     }
-    logger.info({ chat_id }, "Чат создан");
+    logger.info({ chat_id }, "Chat created");
 
     const delay = 2 * SECOND; //message.chat.type == "private" ? 2 * SECOND : 4 * SECOND;
     cache.set(chat_id, throttle(delay, eventListener));
-    logger.info({ chat_id }, "Чат записан в кеш");
+    logger.info({ chat_id }, "Chat writed in cache");
   }
 
-  const messageError = await insertMessage({ chat_id, username, message: text });
-  if (messageError) {
-    logger.error({ text, user, chat_id, error: messageError }, "Ошибка записи соощения");
-  }
+  saveMessage({ chat_id, text, username, user });
 
   if (message.chat.type == "group" || message.chat.type == "supergroup") {
     if (
@@ -81,10 +95,24 @@ bot.on("message", async (message) => {
 emitter.on(TELEGRAM_MESSAGE_SYMBOL, ({ chat_id }) => {
   const handler = cache.get<throttle<MessageEventListener>>(chat_id);
   if (!handler) {
-    logger.warn({ chat_id }, "Не найден кеш для чата");
+    logger.warn({ chat_id }, "Chat cache not found");
     return;
   }
   handler({ chat_id });
 });
 
-logger.info("Ожидание сообщений...");
+logger.info("Waiting for messages...");
+
+process.on("SIGTERM", async () => {
+  logger.info("SIGTERM signal received.");
+  await bot.stopPolling();
+  await bot.close();
+  process.exit(0);
+});
+
+process.on("SIGINT", async () => {
+  logger.info("SIGINT signal received.");
+  await bot.stopPolling();
+  await bot.close();
+  process.exit(0);
+});
