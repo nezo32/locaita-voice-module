@@ -9,6 +9,7 @@ import {
 import ping from "./commands/ping";
 import join from "./commands/join";
 import disconnect from "./commands/disconnect";
+import logger from "../../logger";
 
 interface InteractionFileResponse {
   files: BaseMessageOptions["files"];
@@ -25,14 +26,14 @@ export const commands: Command[] = [ping, join, disconnect];
 export async function unregisterApplicationCommands(client: Client): Promise<void> {
   const currentCommands = await client.application?.commands.fetch();
   if (!currentCommands) {
-    console.error("No commands found to unregister.");
+    logger.error("[DISCORD] No commands found to unregister.");
     return;
   }
   for (const [commandId, command] of currentCommands) {
     try {
       await client.application?.commands.delete(commandId);
     } catch (error) {
-      console.error(`Could not delete command ${command.name}. Error:`, error);
+      logger.error(`[DISCORD] Could not delete command ${command.name}. Error:`, error);
     }
   }
 }
@@ -51,7 +52,7 @@ export function setupApplicationCommands(client: Client): void {
     const command = commands.find((command) => command.data.name === interaction.commandName);
 
     if (!command) {
-      console.error(`No command matching ${interaction.commandName} was found.`);
+      logger.error(`[DISCORD] No command matching ${interaction.commandName} was found.`);
       return;
     }
 
@@ -63,8 +64,7 @@ export function setupApplicationCommands(client: Client): void {
         interaction.reply(reply);
       }
     } catch (error) {
-      console.error(`Error executing ${interaction.commandName}`);
-      console.error(error);
+      logger.error({ error }, `[DISCORD] Error executing ${interaction.commandName}`);
     }
   });
 }

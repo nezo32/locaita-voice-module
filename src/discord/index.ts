@@ -2,6 +2,11 @@ import { Client, Events, GatewayIntentBits, REST } from "discord.js";
 import config from "../config";
 import { setupApplicationCommands } from "./api";
 import { onVoiceStateChange } from "./api/events/voiceChange";
+import logger from "../logger";
+import { textToSpeech } from "../tts";
+
+const result = await textToSpeech("Че такое залупа? ТЫ ахуел?");
+console.log(result);
 
 export const client = new Client({
   intents: [
@@ -24,7 +29,7 @@ try {
   setupApplicationCommands(client);
   onVoiceStateChange(client);
 
-  console.log("Client is ready!");
-} catch (e) {
-  console.error(e);
+  logger.info("[DISCORD] Client is ready!");
+} catch (error) {
+  logger.error({ error }, `[DISCORD] Error occured`);
 }

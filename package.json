@@ -20,6 +20,7 @@
   "packageManager": "pnpm@10.10.0",
   "dependencies": {
     "@discordjs/voice": "^0.18.0",
+    "@gradio/client": "^1.17.0",
     "@supabase/supabase-js": "^2.49.4",
     "axios": "^1.8.4",
     "discord.js": "^14.18.0",

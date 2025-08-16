@@ -5,23 +5,41 @@ import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "./types/database.types";
 import logger from "./logger";
+import { randomUUID } from "crypto";
 
-logger.info("Reading prompt and initializing connect to API/DB...");
-
-const deepseek = new OpenAI({
-  baseURL: "https://api.deepseek.com",
-  apiKey: config.DEEPSEEK_KEY,
-});
+logger.info("[LLM] Reading prompt and initializing connect to API/DB...");
 
 const supabase = createClient<Database>(config.SUPABASE_URL, config.SUPABASE_KEY);
 
 const prompt = fs.readFileSync("prompt.txt", "utf-8");
 
-export const transcription = async (audio: Buffer): Promise<string> => {
-  const start = performance.now();
-  const response = await axios.post("http://localhost:5000", audio);
-  console.log(`Transcription took ${performance.now() - start}ms`);
-  return response.data;
+export const transcription = async (audio: Buffer): Promise<string | undefined> => {
+  const uuid = randomUUID();
+  const path = `recordings/${uuid}.wav`;
+  if (!fs.existsSync("recordings")) {
+    fs.mkdirSync("recordings");
+  }
+  try {
+    fs.writeFileSync(path, audio);
+    const formData = new FormData();
+    formData.append("file", `../${path}`);
+    formData.append("temperature", "0.0");
+    formData.append("temperature_inc", "0.2");
+    formData.append("response_format", "json");
+    const response = await axios.post<string, { data: { text: string } }>(config.SPEECH_TO_TEXT_URL, formData);
+    return response.data.text;
+  } catch (error) {
+    logger.error({ error }, `[STT] Error occured while creating transcription`);
+  } finally {
+    if (fs.existsSync(path)) {
+      fs.unlink(path, (error) => {
+        if (error) {
+          logger.error({ error }, `[STT] Failed to clearup temp audio file: ${uuid}.wav`);
+          return;
+        }
+      });
+    }
+  }
 };
 
 export const createChat = async (id: string) => {
@@ -61,7 +79,7 @@ export const getAiResponse = async (
     .eq("chat_id", chat_id)
     .order("created_at", { ascending: false })
     .limit(50);
-  const context = data || [];
+  const context = data || ([] as { ai: boolean; text: string; username: string }[]);
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: prompt },
@@ -70,24 +88,32 @@ export const getAiResponse = async (
       content: item.text,
       name: item.username,
     })),
-    ...input.map((item) => ({ role: "user" as const, content: item.message, name: item.username })),
+    ...input.map((item) => ({ role: "user" as const, content: `/nothink\n\n${item.message}`, name: item.username })),
   ];
 
-  const answer =
-    (
-      await deepseek.chat.completions.create({
-        messages,
-        model: "deepseek-chat",
-        n: 1,
-      })
-    ).choices[0].message.content || "";
+  const response = await axios.post<{
+    message: {
+      content: string;
+    };
+    total_duration: number;
+  }>(config.LLM_URL, {
+    model: config.LLM_MODEL,
+    stream: false,
+    temperature: 0.7,
+    top_p: 0.8,
+    top_k: 20,
+    messages,
+  });
+  const answer = response.data.message.content;
+
+  logger.info(`[LLM] Request processing duration: ${Math.ceil(response.data.total_duration / 1_000_000)}ms`);
 
   const { error: userError } = await supabase
     .from("context")
     .insert(input.map((item) => ({ ai: false, text: item.message, username: item.username, chat_id })));
 
   if (userError) {
-    console.error("Error inserting user message:", userError);
+    logger.error("[LLM] Error inserting user message:", userError);
   }
 
   const { error: aiError } = await supabase.from("context").insert({
@@ -97,7 +123,7 @@ export const getAiResponse = async (
     chat_id,
   });
   if (aiError) {
-    console.error("Error inserting AI message:", aiError);
+    logger.error("[LLM] Error inserting AI message:", aiError);
   }
 
   return answer;
@@ -121,14 +147,17 @@ export const getAiResponseOnContext = async (chat_id: string) => {
     })),
   ];
 
-  const answer =
-    (
-      await deepseek.chat.completions.create({
-        messages,
-        model: "deepseek-chat",
-        n: 1,
-      })
-    ).choices[0].message.content || "";
+  const response = await axios.post<{
+    message: {
+      content: string;
+    };
+    total_duration: number;
+  }>(config.LLM_URL, {
+    model: config.LLM_MODEL,
+    stream: false,
+    messages,
+  });
+  const answer = response.data.message.content;
 
   const { error: aiError } = await supabase.from("context").insert({
     ai: true,
@@ -137,8 +166,7 @@ export const getAiResponseOnContext = async (chat_id: string) => {
     chat_id: chat_id,
   });
   if (aiError) {
-    console.error("Error inserting AI message:", aiError);
-    logger.error({ error: aiError, chat_id }, "Ошибка записи ответа от ИИ");
+    logger.error({ error: aiError, chat_id }, "[LLM] Error inserting AI response to context");
   }
 
   return answer;

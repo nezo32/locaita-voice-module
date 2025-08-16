@@ -63,7 +63,7 @@ export class UserRecorder {
     const wavHeader = this.createWaveHeader({
       audioFormat: 1, // PCM
       numChannels: 2,
-      sampleRate: 48000,
+      sampleRate: 44100,
       bitDepth: 16,
       data: pcmData,
     });

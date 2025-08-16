@@ -23,9 +23,9 @@ type MessageEventListener = (
 ) => void;
 
 const eventListener: MessageEventListener = async ({ chat_id }) => {
-  logger.debug({ chat_id }, "Message processing...");
+  logger.debug({ chat_id }, "[TELEGRAM] Message processing...");
   getAiResponseOnContext(chat_id).then(async (response) => {
-    logger.debug({ chat_id, response }, "Successfully received response");
+    logger.debug({ chat_id, response }, "[TELEGRAM] Successfully received response");
     await bot.sendMessage(chat_id, response);
   });
 };
@@ -43,7 +43,7 @@ const saveMessage = async ({
 }) => {
   const messageError = await insertMessage({ chat_id, username, message: text });
   if (messageError) {
-    logger.error({ user, chat_id, error: messageError }, "Message writing error");
+    logger.error({ user, chat_id, error: messageError }, "[TELEGRAM] Message writing error");
   }
 };
 
@@ -59,20 +59,20 @@ bot.on("message", async (message) => {
 
   if (!username || !text) return;
 
-  logger.info({ user, chat_id }, "Message received");
+  logger.info({ user, chat_id }, "[TELEGRAM] Message received");
 
   if (!cache.has(chat_id)) {
-    logger.info({ chat_id }, "Creating chat...");
+    logger.info({ chat_id }, "[TELEGRAM] Creating chat...");
     const chat = await createChat(chat_id);
     if (chat instanceof Error) {
-      logger.error({ chat_id, error: chat }, "Chat creation error");
+      logger.error({ chat_id, error: chat }, "[TELEGRAM] Chat creation error");
       return;
     }
-    logger.info({ chat_id }, "Chat created");
+    logger.info({ chat_id }, "[TELEGRAM] Chat created");
 
     const delay = 2 * SECOND; //message.chat.type == "private" ? 2 * SECOND : 4 * SECOND;
     cache.set(chat_id, throttle(delay, eventListener));
-    logger.info({ chat_id }, "Chat writed in cache");
+    logger.info({ chat_id }, "[TELEGRAM] Chat writed in cache");
   }
 
   saveMessage({ chat_id, text, username, user });
@@ -95,23 +95,23 @@ bot.on("message", async (message) => {
 emitter.on(TELEGRAM_MESSAGE_SYMBOL, ({ chat_id }) => {
   const handler = cache.get<throttle<MessageEventListener>>(chat_id);
   if (!handler) {
-    logger.warn({ chat_id }, "Chat cache not found");
+    logger.warn({ chat_id }, "[TELEGRAM] Chat cache not found");
     return;
   }
   handler({ chat_id });
 });
 
-logger.info("Waiting for messages...");
+logger.info("[TELEGRAM] Waiting for messages...");
 
 process.on("SIGTERM", async () => {
-  logger.info("SIGTERM signal received.");
+  logger.info("[TELEGRAM] SIGTERM signal received.");
   await bot.stopPolling();
   await bot.close();
   process.exit(0);
 });
 
 process.on("SIGINT", async () => {
-  logger.info("SIGINT signal received.");
+  logger.info("[TELEGRAM] SIGINT signal received.");
   await bot.stopPolling();
   await bot.close();
   process.exit(0);

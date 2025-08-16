@@ -1,7 +1,9 @@
 import { joinVoiceChannel } from "@discordjs/voice";
 import { APIInteractionGuildMember, Guild, GuildMember } from "discord.js";
 import { VoiceChannelRecorder } from "./channelRecorder";
-import { getAiResponse, transcription } from "../../../ai";
+import { createChat, getAiResponse, transcription } from "../../../ai";
+import { PostgrestError } from "@supabase/supabase-js";
+import logger from "../../../logger";
 
 export const joinVoice = async (member: GuildMember | APIInteractionGuildMember, guild: Guild): Promise<void> => {
   if (!(member instanceof GuildMember)) {
@@ -26,7 +28,7 @@ export const joinVoice = async (member: GuildMember | APIInteractionGuildMember,
 
     if (!recordings.length) return setTimeout(aiAsk, 2000);
 
-    console.log(`Received recordings: ${recordings.length}`);
+    logger.info(`[DISCORD] Received recordings: ${recordings.length}`);
 
     const data = await Promise.all(
       recordings.map(async (item) => ({
@@ -35,26 +37,23 @@ export const joinVoice = async (member: GuildMember | APIInteractionGuildMember,
       }))
     );
 
-    console.log(`Transcripted data: ${data.length}`);
+    logger.info(`[DISCORD] Transcripted data: ${data.length}`);
     data.forEach((item) => {
-      console.log(`username: ${item.username}, message: ${item.message}`);
+      logger.info(`[DISCORD] username: ${item.username}, message: ${item.message}`);
     });
 
-    const finalData = data.filter((item) => {
-      const text = item.message.toLowerCase();
-      return !(
-        text.includes("продолжение следует") ||
-        text.includes("редактор субтитров") ||
-        text.includes("dimatorzok") ||
-        text.includes("субтитры создавал")
-      );
-    });
+    const finalData = data.filter((item) => item.message);
 
     if (!finalData.length) return setTimeout(aiAsk, 2000);
 
-    const response = await getAiResponse(finalData);
-    console.log(`Got AI resopnse`);
-    console.log(response);
+    const chatId = member.voice.channelId!;
+    const error = await createChat(chatId);
+    if (error instanceof PostgrestError) {
+      logger.error(`[DISCORD] Failed to create chat ${chatId}`, error.message);
+    } else {
+      const response = await getAiResponse(chatId, finalData as { message: string; username: string }[]);
+      logger.info({ response }, `[DISCORD] Got AI resopnse`);
+    }
 
     setTimeout(aiAsk, 2000);
   };
