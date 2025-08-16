@@ -17,7 +17,7 @@ await app.predict("/switch_tts_model", {
     new_choice: "Custom"
 })
 
-export const textToSpeech = async (text: string) => await app.predict("/basic_tts", {
+export const textToSpeech = async (text: string): Promise<{ data: [{ path: string }] }> => (await app.predict("/basic_tts", {
     ref_audio_input: handle_file('https://github.com/yaph/tts-samples/raw/refs/heads/main/mp3/Russian/ru-RU-DmitryNeural.mp3'),
     ref_text_input: "Солнце медленно садилось, окрашивая небо в золотые оттенки...",
     gen_text_input: text,
@@ -27,4 +27,4 @@ export const textToSpeech = async (text: string) => await app.predict("/basic_tt
     cross_fade_duration_slider: 0.15,
     nfe_slider: 32,
     speed_slider: 1,
-})
+})) as unknown as { data: [{ path: string }] }

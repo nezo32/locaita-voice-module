@@ -4,6 +4,8 @@ import { VoiceChannelRecorder } from "./channelRecorder";
 import { createChat, getAiResponse, transcription } from "../../../ai";
 import { PostgrestError } from "@supabase/supabase-js";
 import logger from "../../../logger";
+import { textToSpeech } from "../../../tts";
+import { readFileSync } from "fs";
 
 export const joinVoice = async (member: GuildMember | APIInteractionGuildMember, guild: Guild): Promise<void> => {
   if (!(member instanceof GuildMember)) {
@@ -53,6 +55,14 @@ export const joinVoice = async (member: GuildMember | APIInteractionGuildMember,
     } else {
       const response = await getAiResponse(chatId, finalData as { message: string; username: string }[]);
       logger.info({ response }, `[DISCORD] Got AI resopnse`);
+
+      if (response) {
+        const data = await textToSpeech(response)
+
+
+        connection.prepareAudioPacket(readFileSync(data.data[0].path));
+        connection.dispatchAudio();
+      }
     }
 
     setTimeout(aiAsk, 2000);
